@@ -105,7 +105,7 @@ class Robot:
         polling_rate: int = 5,
         then="HOLD",
         TRACE_TARGET=50,
-    ):
+        ):
         """
         PD line tracing with multiple modes.
 
