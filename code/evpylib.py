@@ -4,7 +4,7 @@ from pybricks.parameters import Port, Stop
 from pybricks.tools import wait, StopWatch
 
 class Robot:
-    def __init__(self, devices : dict, base_speed=1000, trace_speed=700, max_speed=1200, 
+    def __init__(self, devices : dict, base_speed=1000, trace_speed=700, max_speed=1200, aux_speed = 200,
                  turning_const=2.2, debug_mode=False):
 
         self.ev3 = EV3Brick()
@@ -24,13 +24,14 @@ class Robot:
         self.BASE_SPEED = base_speed
         self.TRACE_SPEED = trace_speed
         self.MAX_SPEED = max_speed
+        self.AUX_SPEED = aux_speed
         self.TURN_CONST = turning_const
 
     def line_trace_time(
         self,
         duration : int,
         Kp, Kd,
-        ease_duration : int = 400,
+        ease_duration : int = 2000,
         mode="balance",
         polling_rate : int = 5,
         then="HOLD",
@@ -47,7 +48,7 @@ class Robot:
         - then: what to do after duration ends: "HOLD", "STOP", or "BRAKE"
         """
 
-        if self.debug_mode: print(f"Starting line trace for {duration} ms with mode '{mode}'")
+        if self.debug_mode: print("Starting line trace for {} ms with mode '{}'".format(duration, mode))
         last_error = 0
         start = self.watch.time()  # Start stopwatch
 
@@ -100,36 +101,37 @@ class Robot:
     def line_trace_junction(
         self,
         Kp, Kd,
+        junction_count: int = 1,
         mode="balance",
         ease_duration: int = 400,
-        polling_rate: int = 5,
+        polling_rate: int = 10,
         then="HOLD",
         TRACE_TARGET=50,
-        ):
+    ):
         """
-        PD line tracing with multiple modes.
+        PD line tracing with multiple modes until a specified number of junctions.
 
         Parameters:
         - ease_duration: time in ms to gradually increase speed at start
         - Kp, Kd: PD constants
         - mode: string, one of "balance", "left_only", "right_only", "left_minus_right", "right_minus_left"
         - polling_rate: wait time between updates in ms
-        - then: what to do after duration ends: "HOLD", "STOP", or "BRAKE"
+        - then: what to do after target junctions: "HOLD", "STOP", or "BRAKE"
+        - junction_count: how many junctions to detect before stopping
         """
 
         if self.debug_mode:
-            print(f"Starting line trace until junction with mode '{mode}'")
+            print("Starting line trace until {} junction(s) with mode '{}'".format(junction_count, mode))
 
         last_error = 0
-        junction_threshold = 20  # Threshold to detect junction
-        start_time = self.watch.time()  # Start stopwatch
+        junction_threshold = 20
+        last_junction_time = 0
+        junctions_detected = 0
+        start_time = self.watch.time()
 
         while True:
             left_val = self.left_sensor.reflection()
             right_val = self.right_sensor.reflection()
-
-            if left_val < junction_threshold or right_val < junction_threshold:
-                break
 
             if left_val is not None and right_val is not None:
                 # Calculate error based on mode
@@ -149,9 +151,20 @@ class Robot:
                 derivative = error - last_error
                 turn = Kp * error + Kd * derivative
 
-                # Linear ease-in
                 elapsed = self.watch.time() - start_time
                 ease_factor = min(1.0, elapsed / ease_duration) if ease_duration > 0 else 1.0
+
+                # Only check junctions after easing
+                if ease_factor >= 1.0:
+                    detect_junction = abs(derivative) > junction_threshold
+                    junction_cooldown = self.watch.time() - last_junction_time > 500
+
+                    if detect_junction and (last_junction_time == 0 or junction_cooldown):
+                        junctions_detected += 1
+                        last_junction_time = self.watch.time()
+                        self.ev3.speaker.beep(frequency=1000, duration=300)
+                        if junctions_detected >= junction_count:
+                            break
 
                 speed_left = min(max(self.TRACE_SPEED * ease_factor + turn, 0), self.MAX_SPEED)
                 speed_right = min(max(self.TRACE_SPEED * ease_factor - turn, 0), self.MAX_SPEED)
@@ -174,6 +187,7 @@ class Robot:
             self.left_motor.brake()
             self.right_motor.brake()
 
+
     def turn_arc(self, angle: float, radius_factor=0.0, then="HOLD"):
         """
         Turns the robot along an arc using differential wheel speeds.
@@ -183,7 +197,7 @@ class Robot:
         - radius_factor: float, adjusts arc radius (0 = in-place turn, higher = wider arc).
         - then: action after turn ends. One of "HOLD", "STOP", or "BRAKE".
         """
-        if self.debug_mode: print(f"Turning arc with angle {angle} and radius factor {radius_factor}")
+        if self.debug_mode: print("Turning arc with angle {} and radius factor {}".format(angle, radius_factor))
         if then == "HOLD":
             then = Stop.HOLD
         elif then == "STOP":
@@ -217,7 +231,7 @@ class Robot:
         - rotations: float, number of full rotations to move (positive = forward, negative = backward).
         - then: action after movement ends. One of "HOLD", "STOP", or "BRAKE".
         """
-        if self.debug_mode: print(f"Moving {rotations} rotations with action '{then}'")
+        if self.debug_mode: print("Moving {} rotations with action '{}'".format(rotations, then))
 
         if then == "HOLD":
             then = Stop.HOLD
@@ -242,7 +256,7 @@ class Robot:
         - then: str, one of "HOLD", "STOP", or "BRAKE" after movement ends.
         - correction: bool, enable motor angle correction to keep a straight path.
         """
-        if self.debug_mode: print(f"Moving for {duration} ms, reverse={reverse}, ease_in={ease_in}, ease_out={ease_out}, correction={correction}, then='{then}'")
+        if self.debug_mode: print("Moving for {} ms, reverse={}, ease_in={}, ease_out={}, correction={}, then='{}'".format(duration, reverse, ease_in, ease_out, correction, then))
         k = 0.5  # Correction strength
 
         # Determine easing duration
@@ -312,7 +326,8 @@ class Robot:
         - correction: bool, motor angle correction to keep straight
         - then: str, one of "HOLD", "STOP", or "BRAKE" after movement ends
         """
-        if self.debug_mode: print(f"Bump align with debounce_duration={debounce_duration}, ease_in={ease_in}, correction={correction}, then='{then}'")
+        if self.debug_mode: print("Bump align with debounce_duration={}, ease_in={}, correction={}, then='{}'".format(debounce_duration, ease_in, correction, then))
+
         k = 0.5  # correction strength
         ease_duration = 400 if ease_in else 0
         stall_threshold = 100
@@ -380,7 +395,7 @@ class Robot:
         - angle: float, target angle in degrees.
         - motor_number: int, 1 or 2 to select auxiliary motor.
         """
-        if self.debug_mode: print(f"Moving auxiliary motor {motor_number} to angle {angle}")
+        if self.debug_mode: print("Moving auxiliary motor {} to angle {}".format(motor_number, angle))
         if motor_number == 1:
             if not self.aux_motor_1:
                 raise ValueError("Auxiliary motor 1 is not initialized.")
@@ -392,9 +407,9 @@ class Robot:
         else:
             raise ValueError("Invalid motor number. Use 1 or 2.")
         
-        aux_motor.run_angle(self.BASE_SPEED, angle, then=Stop.HOLD)
+        aux_motor.run_angle(self.AUX_SPEED, angle, then=Stop.HOLD)
     
-    def move_aux_stall(self, motor_number : int, stall_threshold=10, polling_rate=10):
+    def move_aux_stall(self, motor_number : int, reversed = False, stall_threshold=5, polling_rate=100):
         """
         Moves the auxiliary motor until it stalls.
 
@@ -403,7 +418,8 @@ class Robot:
         - stall_threshold: int, angle threshold to detect stall.
         - polling_rate: int, ms between control updates.
         """
-        if self.debug_mode: print(f"Moving auxiliary motor {motor_number} until stall with threshold {stall_threshold}")
+        start = self.watch.time()
+        if self.debug_mode: print("Moving auxiliary motor {} until stall with threshold {}".format(motor_number, stall_threshold))
         if motor_number == 1:
             if not self.aux_motor_1:
                 raise ValueError("Auxiliary motor 1 is not initialized.")
@@ -415,9 +431,13 @@ class Robot:
         else:
             raise ValueError("Invalid motor number. Use 1 or 2.")
         
-        aux_motor.run(self.BASE_SPEED)
+        prev_angle = aux_motor.angle()
+        aux_motor.run(-self.AUX_SPEED if reversed else self.AUX_SPEED)
 
-        while abs(self.aux_motor.angle()) < stall_threshold:
+        while abs(aux_motor.angle() - prev_angle) > stall_threshold or (self.watch.time() - start) < 500:
+            print(aux_motor.angle() - prev_angle)
+            prev_angle = aux_motor.angle()
             wait(polling_rate)
+
 
         aux_motor.stop()
