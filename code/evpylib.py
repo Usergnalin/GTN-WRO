@@ -116,7 +116,7 @@ class Robot:
         - Kp, Kd: PD constants
         - mode: string, one of "balance", "left_only", "right_only", "left_minus_right", "right_minus_left"
         - polling_rate: wait time between updates in ms
-        - then: what to do after target junctions: "HOLD", "STOP", or "BRAKE"
+        - then: what to do after target junctions: "HOLD", "STOP", "BRAKE"
         - junction_count: how many junctions to detect before stopping
         """
 
@@ -128,6 +128,7 @@ class Robot:
         last_junction_time = 0
         junctions_detected = 0
         start_time = self.watch.time()
+        last_update = start_time
 
         while True:
             left_val = self.left_sensor.reflection()
@@ -162,9 +163,14 @@ class Robot:
                     if detect_junction and (last_junction_time == 0 or junction_cooldown):
                         junctions_detected += 1
                         last_junction_time = self.watch.time()
-                        self.ev3.speaker.beep(frequency=1000, duration=300)
                         if junctions_detected >= junction_count:
+                            wait(100000/self.TRACE_SPEED)
                             break
+                        wait(100000/self.TRACE_SPEED)  # Wait to avoid multiple detections
+                
+                if self.debug_mode: 
+                    if self.debug_mode == 2: print("Left: {}, Right: {}, Error: {}, Derivative: {} Delta_time: {}".format(left_val, right_val, error, derivative, self.watch.time() - last_update))
+                    last_update = self.watch.time()
 
                 speed_left = min(max(self.TRACE_SPEED * ease_factor + turn, 0), self.MAX_SPEED)
                 speed_right = min(max(self.TRACE_SPEED * ease_factor - turn, 0), self.MAX_SPEED)
@@ -186,6 +192,7 @@ class Robot:
         elif then == "BRAKE":
             self.left_motor.brake()
             self.right_motor.brake()
+        
 
 
     def turn_arc(self, angle: float, radius_factor=0.0, then="HOLD"):
@@ -356,8 +363,8 @@ class Robot:
             else:
                 correction_val = 0
 
-            speed_left = (self.BASE_SPEED - correction_val) * speed_factor
-            speed_right = (self.BASE_SPEED + correction_val) * speed_factor
+            speed_left = -(self.BASE_SPEED - correction_val) * speed_factor
+            speed_right = -(self.BASE_SPEED + correction_val) * speed_factor
 
             self.left_motor.run(speed_left)
             self.right_motor.run(speed_right)
@@ -387,7 +394,7 @@ class Robot:
             self.left_motor.brake()
             self.right_motor.brake()
 
-    def move_aux_angle(self, angle, motor_number : int):
+    def move_aux_angle(self, angle, motor_number : int, waiting = True):
         """
         Moves the auxiliary motor to a specific angle.
 
@@ -407,9 +414,9 @@ class Robot:
         else:
             raise ValueError("Invalid motor number. Use 1 or 2.")
         
-        aux_motor.run_angle(self.AUX_SPEED, angle, then=Stop.HOLD)
+        aux_motor.run_angle(self.AUX_SPEED, angle, then=Stop.HOLD, wait = waiting)
     
-    def move_aux_stall(self, motor_number : int, reversed = False, stall_threshold=5, polling_rate=100):
+    def move_aux_stall(self, motor_number : int, reversed = False, waiting = True, stall_threshold=5, polling_rate=100):
         """
         Moves the auxiliary motor until it stalls.
 
@@ -434,10 +441,25 @@ class Robot:
         prev_angle = aux_motor.angle()
         aux_motor.run(-self.AUX_SPEED if reversed else self.AUX_SPEED)
 
+        print(abs(aux_motor.angle() - prev_angle))
+
         while abs(aux_motor.angle() - prev_angle) > stall_threshold or (self.watch.time() - start) < 500:
-            print(aux_motor.angle() - prev_angle)
             prev_angle = aux_motor.angle()
             wait(polling_rate)
 
 
-        aux_motor.stop()
+        if waiting: aux_motor.stop()
+
+    def get_colour(self, sensor_num):
+        """
+        Returns the color detected by the specified auxiliary sensor.
+        Parameters:
+        - sensor_num: int, 1 or 2 to select auxiliary sensor.
+        """
+        if sensor_num == 1: return self.aux_sensor_1.color()
+        elif sensor_num == 2: return self.aux_sensor_2.color()
+        else: raise("invalid Sensor_num")
+
+        
+
+
