@@ -192,8 +192,6 @@ class Robot:
         elif then == "BRAKE":
             self.left_motor.brake()
             self.right_motor.brake()
-        
-
 
     def turn_arc(self, angle: float, radius_factor=0.0, then="HOLD"):
         """
@@ -230,13 +228,14 @@ class Robot:
         self.left_motor.run_angle(speed_left if left_angle >= 0 else -speed_left, abs_left, wait=False, then=then)
         self.right_motor.run_angle(speed_right if right_angle >= 0 else -speed_right, abs_right, then=then)
     
-    def move_rotations(self, rotations: float, then="HOLD"):
+    def move_rotations(self, rotations: float, then="HOLD", speed = None):
         """
         Moves the robot forward for a given number of wheel rotations.
 
         Parameters:
         - rotations: float, number of full rotations to move (positive = forward, negative = backward).
         - then: action after movement ends. One of "HOLD", "STOP", or "BRAKE".
+        - speed: int, optional speed in degrees per second. Defaults to base speed.
         """
         if self.debug_mode: print("Moving {} rotations with action '{}'".format(rotations, then))
 
@@ -246,9 +245,9 @@ class Robot:
             then = Stop.COAST
         elif then == "BRAKE":
             then = Stop.BRAKE
-
-        self.left_motor.run_angle(self.BASE_SPEED, rotations * 360, wait=False, then=then)
-        self.right_motor.run_angle(self.BASE_SPEED, rotations * 360, then=then)
+        if not speed: speed = self.BASE_SPEED
+        self.left_motor.run_angle(speed, rotations * 360, wait=False, then=then)
+        self.right_motor.run_angle(speed, rotations * 360, then=then)
 
     def move_time(self, duration: float, reverse: bool = False, ease_in: bool = False, ease_out: bool = False, polling_rate: int = 10, then: str = "HOLD", correction: bool = True):
         """
