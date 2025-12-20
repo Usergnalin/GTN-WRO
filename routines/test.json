@@ -1,0 +1,29 @@
+{
+    "routine" :
+    [
+        {"fn": "move_distance", "distance": 100},
+        {"fn": "turn_arc", "angle": 90, "radius": 30},
+        {"fn": "line_trace_distance", "distance": 100, "side": "right"},
+        {"fn": "move_distance", "distance": 100},
+        {"fn": "turn_arc", "angle": 90, "radius": 30},
+        {"fn": "line_trace_distance", "distance": 100, "side": "right"},
+        {"fn": "move_distance", "distance": 100},
+        {"fn": "turn_arc", "angle": 90, "radius": 30},
+        {"fn": "line_trace_distance", "distance": 100, "side": "right"},
+        {"fn": "move_distance", "distance": 100},
+        {"fn": "turn_arc", "angle": 90, "radius": 30},
+        {"fn": "line_trace_distance", "distance": 100, "side": "right"},
+        {"fn": "move_distance", "distance": 100},
+        {"fn": "turn_arc", "angle": 90, "radius": 30},
+        {"fn": "line_trace_distance", "distance": 100, "side": "right"},
+        {"fn": "move_distance", "distance": 100},
+        {"fn": "turn_arc", "angle": 90, "radius": 30},
+        {"fn": "line_trace_distance", "distance": 100, "side": "right"},
+        {"fn": "move_distance", "distance": 100},
+        {"fn": "turn_arc", "angle": 90, "radius": 30},
+        {"fn": "line_trace_distance", "distance": 100, "side": "right"},
+        {"fn": "move_distance", "distance": 100},
+        {"fn": "turn_arc", "angle": 90, "radius": 30},
+        {"fn": "line_trace_distance", "distance": 100, "side": "right"}
+    ]
+}
